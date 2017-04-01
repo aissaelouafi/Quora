@@ -1,11 +1,6 @@
 
 # coding: utf-8
 
-# ## Quora Kaggle competition
-#
-# Welcome to the Quora Question Pairs competition! Here, our goal is to identify which questions asked on Quora, a quasi-forum website with over 100 million visitors a month, are duplicates of questions that have already been asked. This could be useful, for example, to instantly provide answers to questions that have already been answered. We are tasked with predicting whether a pair of questions are duplicates or not, and submitting a binary prediction against the logloss metric.
-
-# In[66]:
 
 import numpy as np
 import pandas as pd
@@ -32,7 +27,7 @@ import xgboost as xgb
 def wmd(s1,s2):
     s1 = str(s1).lower().split()
     s2 = str(s2).lower().split()
-    stop_words = stop_words.word('english')
+    stop_words = nltk.corpus.stopwords.words()
     s1 = [w for w in s1 if w not in stop_words]
     s2 = [w for w in s2 if w not in stop_words]
     return model.wmdistance(s1,s2)
@@ -43,7 +38,7 @@ def wmd(s1,s2):
 def norm_wmd(s1,s2):
     s1 = str(s1).lower().split()
     s2 = str(s2).lower().split()
-    stop_words = stop_words.word('english')
+    stop_words = nltk.corpus.stopwords.words()
     s1 = [w for w in s1 if w not in stop_words]
     s2 = [w for w in s2 if w not in stop_words]
     return norm_model.wmdistance(s1, s2)
@@ -59,12 +54,16 @@ df_test = pd.read_csv('./test_features.csv')
 # Generate word2vec features
 
 #Load Word2vec models trained on Google news corpus (300 dimensions)
-model = gn.models.KeyedVectors.load_word2vec_format('data/GoogleNews-vectors-negative300.bin.gz', binary=True)
+model = gn.models.KeyedVectors.load_word2vec_format('./GoogleNews-vectors-negative300.bin', binary=True)
 
 #Calculate word mover distance based on word2vec model
 df_train['wmd'] = df_train.apply(lambda x: wmd(x['question1'], x['question2']), axis=1)
+df_test['wmd'] = df_test.apply(lambda x: wmd(x['question1'],x['question2']), axis=1)
 
 
+#Calculate normalised word mover distance based on word2vec model
+df_train['norm_wmd'] = df_train.apply(lambda x: norm_wmd(x['question1'], x['question2']), axis=1)
+df_test['norm_wmd'] = df_test.apply(lambda x: norm_wmd(x['question1'],x['question2']), axis=1)
 
 
 
@@ -75,7 +74,7 @@ params['eval_metric'] = 'logloss'
 params['eta'] = 0.02
 params['max_depth'] = 4
 
-x_train = df_train.ix[:, 6:24]
+x_train = df_train.ix[:, 6:,]
 y_train = df_train.is_duplicate
 
 d_train = xgb.DMatrix(x_train, label=y_train)
@@ -85,7 +84,7 @@ bst = xgb.train(params, d_train, 400)
 
 print(bst.feature_names)
 
-test = df_test.ix[:, 3:21]
+test = df_test.ix[:, 3:,]
 d_test = xgb.DMatrix(test)
 p_test = bst.predict(d_test)
 
